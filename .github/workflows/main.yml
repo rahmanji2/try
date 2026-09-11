@@ -1,0 +1,48 @@
+name: Sync Full ChinaIPTV
+
+on:
+  schedule:
+    # প্রতিদিন প্রতি ১২ ঘণ্টায় একবার রান করবে
+    - cron: '0 */12 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: sync-china-full
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Clone and copy all playlists
+        run: |
+          mkdir -p china_iptv
+          
+          # মূল রিপোজিটরি ক্লোন
+          git clone --depth 1 https://github.com/hujingguang/ChinaIPTV.git temp_china || true
+          
+          # সকল .m3u8 এবং .txt ফাইল কপি করা
+          cp temp_china/*.m3u8 ./china_iptv/ 2>/dev/null || true
+          cp temp_china/*.txt ./china_iptv/ 2>/dev/null || true
+          
+          # টেম্পোরারি ফোল্ডার মুছে ফেলা
+          rm -rf temp_china
+
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add china_iptv/
+          if git diff --staged --quiet; then
+            echo "No updates detected in ChinaIPTV."
+          else
+            git commit -m "Sync ChinaIPTV lists: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+            git push origin main
+          fi
